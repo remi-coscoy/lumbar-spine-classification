@@ -14,3 +14,7 @@ The sample weights are as follows:
 - 1 for normal/mild.
 - 2 for moderate.
 - 4 for severe.
+
+## Credit
+
+Use of FIX Jeremy's (Pytorch template code)[https://github.com/jeremyfix/pytorch_template_code]
