@@ -1,5 +1,6 @@
 data:
-  trainpath: '/opt/Datasets/'
+  path: "data"
+  competition: "rsna-2024-lumbar-spine-degenerative-classification"
   # testpath: '/dummy/path/to/test'
   batch_size: 256
   num_workers: 4
@@ -14,12 +15,13 @@ nepochs: 20
 loss: "CrossEntropyLoss"
 
 logging:
-  # wandb: 
+  # wandb:
   #   project: sample_project
   #   entity: sample_entity
-  logdir: "./logs"  # Better to provide the fullpath, especially on the cluster
+  log_file: "logs/app.log"
+  log_level: DEBUG
 # model:
 #   class: Linear
 model:
   class: VanillaCNN
-  num_layers : 4
+  num_layers: 4

@@ -1,17 +1,88 @@
-# coding: utf-8
-
-# Standard imports
 import logging
 import random
-
-# External imports
-import torch
-import torch.nn as nn
-import torch.utils.data
-import torchvision
-from torchvision import transforms
+import os
 
 import matplotlib.pyplot as plt
+import numpy as np
+import pydicom
+import torch
+import torchvision
+from torch.utils.data import Dataset
+from torchvision import transforms
+
+
+# Create the PyTorch dataset
+class LumbarSpineDataset(Dataset):
+    def __init__(self, df, labels_df, data_dir, transform=None):
+        self.df = df
+        self.labels_df = labels_df
+        self.data_dir = data_dir
+        self.transform = transform
+
+        # Create a dictionary to map study_id to a list of (series_id, instance_number) pairs
+        self.study_to_samples = {}
+        for _, row in self.labels_df.iterrows():
+            study_id = row["study_id"]
+            series_id = row["series_id"]
+            instance_number = row["instance_number"]
+            if study_id not in self.study_to_samples:
+                self.study_to_samples[study_id] = []
+            self.study_to_samples[study_id].append((series_id, instance_number))
+
+    def __len__(self):
+        return len(self.df)
+
+    def __getitem__(self, idx):
+        row = self.df.iloc[idx]
+        study_id = row["study_id"]
+
+        # Load the DICOM images for the given study_id
+        images = []
+        for series_id, instance_number in self.study_to_samples[study_id]:
+            dicom_path = os.path.join(
+                self.data_dir,
+                "train_images",
+                study_id,
+                series_id,
+                f"{instance_number}.dcm",
+            )
+            dicom = pydicom.read_file(dicom_path)
+            image = dicom.pixel_array
+            images.append(image)
+
+        # Stack the images into a 3D tensor
+        image_tensor = torch.tensor(np.stack(images, axis=0)).float()
+
+        # Get the labels
+        labels = []
+        for condition in [
+            "spinal_canal_stenosis",
+            "neural_foraminal_narrowing",
+            "subarticular_stenosis",
+        ]:
+            for side in ["left", "right"]:
+                for level in ["l1_l2", "l2_l3", "l3_l4", "l4_l5", "l5_s1"]:
+                    label_col = f"{condition}_{side}_{level}"
+                    if label_col in row:
+                        label = row[label_col]
+                        if label == "Normal/Mild":
+                            label = 0
+                        elif label == "Moderate":
+                            label = 1
+                        elif label == "Severe":
+                            label = 2
+                        else:
+                            label = -1
+                        labels.append(label)
+                    else:
+                        labels.append(-1)
+
+        labels_tensor = torch.tensor(labels).long()
+
+        if self.transform:
+            image_tensor = self.transform(image_tensor)
+
+        return image_tensor, labels_tensor
 
 
 def show_image(X):
