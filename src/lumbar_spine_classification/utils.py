@@ -8,8 +8,24 @@ import torch
 import torch.nn
 import tqdm
 import pandas as pd
+import logging
 from config.config import config
 from custom_logging.logger import logger
+
+
+def redirect_logger(logger, new_log_path):
+    # Remove existing file handlers
+    for handler in logger.handlers[
+        :
+    ]:  # [:] makes a copy of the list to avoid modification during iteration
+        if isinstance(handler, logging.FileHandler):
+            logger.removeHandler(handler)
+            handler.close()
+
+    # Add new file handler
+    new_handler = logging.FileHandler(new_log_path)
+    new_handler.setFormatter(logger.handlers[0].formatter)  # Keep the same formatting
+    logger.addHandler(new_handler)
 
 
 def load_df(csv_file):

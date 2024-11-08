@@ -17,6 +17,7 @@ from lumbar_spine_classification import data
 from lumbar_spine_classification import models
 from lumbar_spine_classification import optim
 from lumbar_spine_classification import utils
+from custom_logging.logger import logger
 
 
 def train(config):
@@ -69,6 +70,14 @@ def train(config):
     with open(logdir / "config.yaml", "w") as file:
         yaml.dump(config, file)
 
+    # Redirect the logs
+    utils.redirect_logger(logger, logdir / "app.log")
+
+    # Calculate number of iterations
+    iterations_per_epoch = (
+        int(len(train_loader.dataset.dataset) / data_config["batch_size"]) + 1
+    )
+
     # Make a summary script of the experiment
     input_size = next(iter(train_loader))[0].shape
     summary_text = (
@@ -85,6 +94,7 @@ def train(config):
         + "## Datasets : \n"
         + f"Train : {train_loader.dataset.dataset}\n"
         + f"Validation : {valid_loader.dataset.dataset}"
+        + f"Number of iterations: {iterations_per_epoch}"
     )
     with open(logdir / "summary.txt", "w") as f:
         f.write(summary_text)
@@ -106,9 +116,9 @@ def train(config):
 
         updated = model_checkpoint.update(test_loss)
         logging.info(
-            "[%d/%d] Test loss : %.3f %s"
+            "[%d/%d] Validation loss : %.3f %s"
             % (
-                e,
+                e + 1,
                 config["nepochs"],
                 test_loss,
                 "[>> BETTER <<]" if updated else "",

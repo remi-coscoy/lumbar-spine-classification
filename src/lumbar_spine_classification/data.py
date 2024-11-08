@@ -94,7 +94,7 @@ class LumbarSpineDataset(Dataset):
         image_tensor = torch.tensor(image).float()
         if self.transform:
             image_tensor = self.transform(image_tensor)
-        print(f"shape: {image_tensor.shape}")
+        logger.debug(f"shape: {image_tensor.shape}")
 
         # Get the labels
 
@@ -126,7 +126,9 @@ def get_dataloaders(data_config, use_cuda):
 
     indices = list(range(len(base_dataset)))
     random.shuffle(indices)
-    num_valid = int(valid_ratio * len(base_dataset))
+    stop_index = int(len(base_dataset) * data_config["used_portion"])
+    indices = indices[:stop_index]
+    num_valid = int(valid_ratio * len(indices))
     train_indices = indices[num_valid:]
     valid_indices = indices[:num_valid]
 
