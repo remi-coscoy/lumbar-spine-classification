@@ -1,3 +1,13 @@
+# Config file
+config.yaml
+
+# Data
+data/*
+
+# logs and wandb
+logs/*
+wandb/*
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
