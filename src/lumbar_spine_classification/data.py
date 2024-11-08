@@ -1,95 +1,106 @@
 import logging
 import random
 import os
+import pandas as pd
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pydicom
+import pydicom as dicom
 import torch
 import torchvision
 from torch.utils.data import Dataset
 from torchvision import transforms
+from lumbar_spine_classification.utils import load_df
+from custom_logging.logger import logger
 
 
-# Create the PyTorch dataset
 class LumbarSpineDataset(Dataset):
-    def __init__(self, df, labels_df, data_dir, transform=None):
-        self.df = df
-        self.labels_df = labels_df
-        self.data_dir = data_dir
+    def __init__(
+        self, description_df, labels_df, data_config, is_train, transform=None
+    ):
+        """
+        Sagittal T2/STIR
+        Sagittal T1
+        Axial T2
+        """
+        logger.info("Initializing the LumbarSpineDataset")
+        self.view_type = data_config["view_type"]
+        self.data_dir = data_config["path"]
         self.transform = transform
-
-        # Create a dictionary to map study_id to a list of (series_id, instance_number) pairs
-        self.study_to_samples = {}
-        for _, row in self.labels_df.iterrows():
-            study_id = row["study_id"]
-            series_id = row["series_id"]
-            instance_number = row["instance_number"]
-            if study_id not in self.study_to_samples:
-                self.study_to_samples[study_id] = []
-            self.study_to_samples[study_id].append((series_id, instance_number))
+        self.image_paths = {}
+        self.labels = {}
+        self.df = description_df.loc[
+            description_df["series_description"] == self.view_type
+        ]
+        self.labels_df = labels_df
+        if is_train:
+            self.image_folder = data_config["train_path"]
+        else:
+            self.image_folder = data_config["test_path"]
+        self.get_path_by_study_id_series_id()
+        self.get_label_by_study_id()
 
     def __len__(self):
         return len(self.df)
 
-    def __getitem__(self, idx):
-        row = self.df.iloc[idx]
-        study_id = row["study_id"]
+    def get_path_by_study_id_series_id(self):
+        for study_id, series_id in zip(self.df["study_id"], self.df["series_id"]):
+            study_dir = os.path.join(self.data_dir, self.image_folder, str(study_id))
+            series_dir = os.path.join(study_dir, str(series_id))
+            images = os.listdir(series_dir)
+            self.image_paths[(study_id, series_id)] = [
+                os.path.join(series_dir, img) for img in images
+            ]
 
-        # Load the DICOM images for the given study_id
-        images = []
-        for series_id, instance_number in self.study_to_samples[study_id]:
-            dicom_path = os.path.join(
-                self.data_dir,
-                "train_images",
-                study_id,
-                series_id,
-                f"{instance_number}.dcm",
-            )
-            dicom = pydicom.read_file(dicom_path)
-            image = dicom.pixel_array
-            images.append(image)
-
-        # Stack the images into a 3D tensor
-        image_tensor = torch.tensor(np.stack(images, axis=0)).float()
-
-        # Get the labels
-        labels = []
-        for condition in [
-            "spinal_canal_stenosis",
-            "neural_foraminal_narrowing",
-            "subarticular_stenosis",
-        ]:
-            for side in ["left", "right"]:
-                for level in ["l1_l2", "l2_l3", "l3_l4", "l4_l5", "l5_s1"]:
-                    label_col = f"{condition}_{side}_{level}"
-                    if label_col in row:
-                        label = row[label_col]
-                        if label == "Normal/Mild":
-                            label = 0
-                        elif label == "Moderate":
-                            label = 1
-                        elif label == "Severe":
-                            label = 2
-                        else:
-                            label = -1
-                        labels.append(label)
+    def get_label_by_study_id(self):
+        for study_id in self.labels_df["study_id"].unique():
+            label_row = self.labels_df.loc[self.labels_df["study_id"] == study_id]
+            study_labels = []
+            for label_col in self.labels_df.columns:
+                if label_col != "study_id":
+                    label = label_row[label_col].item()
+                    logger.debug(label)
+                    if label == "Normal/Mild":
+                        study_labels.append([1, 0, 0])
+                    elif label == "Moderate":
+                        study_labels.append([0, 1, 0])
+                    elif label == "Severe":
+                        study_labels.append([1, 0, 1])
                     else:
-                        labels.append(-1)
+                        study_labels.append([1, 0, 0])
+            self.labels[study_id] = torch.tensor(study_labels).flatten().float()
 
-        labels_tensor = torch.tensor(labels).long()
+    def __getitem__(self, index):
+        row = self.df.iloc[index]
+        study_id = row["study_id"]
+        series_id = row["series_id"]
 
+        # Load the DICOM images for the given series
+        series_image_paths = self.image_paths[(study_id, series_id)]
+        num_images = len(series_image_paths)
+
+        # Calculate the index of the center image and the two before and after
+        center_index = num_images // 2
+        start_index = max(0, center_index - 2)
+        end_index = min(num_images, center_index + 2)
+
+        dicom_images = []
+        for i in range(start_index, end_index):
+            image_path = series_image_paths[i]
+            image = dicom.pixel_array(image_path)
+            dicom_images.append(image)
+
+        image = np.stack(dicom_images, axis=0)
+        image_tensor = torch.tensor(image).float()
         if self.transform:
             image_tensor = self.transform(image_tensor)
+        print(f"shape: {image_tensor.shape}")
+
+        # Get the labels
+
+        labels_tensor = self.labels[study_id]
 
         return image_tensor, labels_tensor
-
-
-def show_image(X):
-    num_c = X.shape[0]
-    plt.figure()
-    plt.imshow(X[0] if num_c == 1 else X.permute(1, 2, 0))
-    plt.show()
 
 
 def get_dataloaders(data_config, use_cuda):
@@ -98,15 +109,17 @@ def get_dataloaders(data_config, use_cuda):
     num_workers = data_config["num_workers"]
 
     logging.info("  - Dataset creation")
+    description_df = load_df("train_series_descriptions.csv")
+    labels_df = load_df("train.csv")
 
-    input_transform = transforms.Compose(
-        [transforms.Grayscale(), transforms.Resize((128, 128)), transforms.ToTensor()]
-    )
+    input_transform = transforms.Compose([transforms.Resize((256, 256))])
 
-    base_dataset = torchvision.datasets.Caltech101(
-        root=data_config["trainpath"],
-        download=True,
+    base_dataset = LumbarSpineDataset(
+        description_df=description_df,
+        data_config=data_config,
+        labels_df=labels_df,
         transform=input_transform,
+        is_train=True,
     )
 
     logging.info(f"  - I loaded {len(base_dataset)} samples")
@@ -137,7 +150,7 @@ def get_dataloaders(data_config, use_cuda):
         pin_memory=use_cuda,
     )
 
-    num_classes = len(base_dataset.categories)
+    num_classes = len(base_dataset[0][1])
     input_size = tuple(base_dataset[0][0].shape)
 
     return train_loader, valid_loader, input_size, num_classes

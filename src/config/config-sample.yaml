@@ -2,9 +2,12 @@ data:
   path: "data"
   competition: "rsna-2024-lumbar-spine-degenerative-classification"
   # testpath: '/dummy/path/to/test'
-  batch_size: 256
+  batch_size: 4
   num_workers: 4
   valid_ratio: 0.2
+  view_type: Sagittal T2/STIR
+  train_path: train_images
+  test_path: test_images
 
 optim:
   algo: SGD
@@ -20,6 +23,7 @@ logging:
   #   entity: sample_entity
   log_file: "logs/app.log"
   log_level: DEBUG
+  logdir: logs
 # model:
 #   class: Linear
 model:

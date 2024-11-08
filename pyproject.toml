@@ -19,6 +19,7 @@ tqdm = "^4.66.6"
 pydicom = "^3.0.1"
 kaggle = "^1.6.17"
 python-dotenv = "^1.0.1"
+pandas = "^2.2.3"
 
 
 [build-system]

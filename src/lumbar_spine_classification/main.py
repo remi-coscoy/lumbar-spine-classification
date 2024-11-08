@@ -13,10 +13,10 @@ import torch
 import torchinfo.torchinfo as torchinfo
 
 # Local imports
-from . import data
-from . import models
-from . import optim
-from . import utils
+from lumbar_spine_classification import data
+from lumbar_spine_classification import models
+from lumbar_spine_classification import optim
+from lumbar_spine_classification import utils
 
 
 def train(config):

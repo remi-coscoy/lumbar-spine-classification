@@ -26,6 +26,7 @@ def conv_down(cin, cout):
 
 
 def VanillaCNN(cfg, input_size, num_classes):
+    print(num_classes)
 
     layers = []
     cin = input_size[0]

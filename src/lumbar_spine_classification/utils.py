@@ -7,6 +7,13 @@ import os
 import torch
 import torch.nn
 import tqdm
+import pandas as pd
+from config.config import config
+from custom_logging.logger import logger
+
+
+def load_df(csv_file):
+    return pd.read_csv(os.path.join(config["data"]["path"], csv_file))
 
 
 def generate_unique_logpath(logdir, raw_run_name):
@@ -88,6 +95,8 @@ def train(model, loader, f_loss, optimizer, device, dynamic_display=True):
 
         # Compute the forward propagation
         outputs = model(inputs)
+        logger.debug(f"output shape: {outputs.shape}")
+        logger.debug(f"target shape :{targets.shape}")
 
         loss = f_loss(outputs, targets)
 
@@ -123,7 +132,7 @@ def test(model, loader, f_loss, device):
 
     total_loss = 0
     num_samples = 0
-    for (inputs, targets) in loader:
+    for inputs, targets in loader:
 
         inputs, targets = inputs.to(device), targets.to(device)
 

@@ -3,8 +3,9 @@ import os
 
 from config.config import config
 
+logging_config = config["logging"]
 # Set the log level from the configuration
-LOG_LEVEL = config.get("log_level", "INFO")
+LOG_LEVEL = logging_config.get("log_level", "INFO")
 
 # Create the logger
 logger = logging.getLogger()
@@ -15,16 +16,16 @@ console_handler = logging.StreamHandler()
 console_handler.setLevel(LOG_LEVEL)
 
 # Create a formatter
-formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s \ \n %(message)s")
 console_handler.setFormatter(formatter)
 
 # Add the console handler to the logger
 logger.addHandler(console_handler)
 
 # Add a file handler
-if config.get("log_file"):
+if logging_config.get("log_file"):
     log_file_path = os.path.join(
-        os.path.dirname(__file__), "..", "..", config["log_file"]
+        os.path.dirname(__file__), "..", "..", logging_config["log_file"]
     )
     file_handler = logging.FileHandler(log_file_path)
     file_handler.setLevel(LOG_LEVEL)

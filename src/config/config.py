@@ -1,6 +1,5 @@
 import os
 import yaml
-from custom_logging.logger import logger
 
 # Default configuration file
 CONFIG_FILE = "config.yaml"
@@ -20,7 +19,7 @@ def load_config(config_file=CONFIG_FILE):
     config_path = os.path.join(os.path.dirname(__file__), config_file)
 
     if not os.path.exists(config_path):
-        logger.warning(
+        print(
             f"Configuration file '{config_file}' not found. Trying '{SAMPLE_CONFIG_FILE}'. Please copy the sample configuration and rename it to '{config_file}' to make changes"
         )
         config_path = os.path.join(os.path.dirname(__file__), SAMPLE_CONFIG_FILE)
